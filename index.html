@@ -1,0 +1,28 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <title>nextDrive • Electric & Used Motorcycles</title>
+
+    <!-- Vite sirve /public/* desde la raíz → usar /IMG/... -->
+    <!-- Usamos el logo mini como favicon (lo tenés en /public/IMG/logo-mini.png) -->
+    <link rel="icon" type="image/png" href="/IMG/logo-mini.png" />
+
+    <!-- Color de la barra del navegador en mobile -->
+    <meta name="theme-color" content="#050509" />
+
+    <!-- Si NO querés bloquear SEO, borrá esta línea cuando publiques en el dominio final -->
+    <meta name="robots" content="noindex, nofollow" />
+  </head>
+  <body class="bg-[#050509]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <noscript>Please enable JavaScript to view this site.</noscript>
+  </body>
+</html>
