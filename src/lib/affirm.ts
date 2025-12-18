@@ -29,12 +29,15 @@ let loadingPromise: Promise<void> | null = null;
 
 /**
  * Carga el SDK de Affirm una sola vez y espera a `affirm.ui.ready`.
- * - Usa VITE_AFFIRM_ENV (prod/sandbox)
- * - Limpia scripts viejos de otro entorno
+ * Importante: si NO hay publicKey, NO rompe la app (solo no carga).
  */
-export function loadAffirm(publicKey: string, env?: 'prod' | 'sandbox'): Promise<void> {
-  const key = (publicKey || '').trim(); // NO eliminar prefijos pk_*
-  if (!key) throw new Error('[Affirm] Falta VITE_AFFIRM_PUBLIC_KEY');
+export function loadAffirm(publicKey?: string, env?: 'prod' | 'sandbox'): Promise<void> {
+  const key = String(publicKey || '').trim(); // NO eliminar prefijos pk_*
+
+  // Si no hay key, simplemente no cargamos (y no tiramos error).
+  if (!key) {
+    return Promise.resolve();
+  }
 
   if (loadingPromise) return loadingPromise;
 
@@ -84,8 +87,8 @@ export function loadAffirm(publicKey: string, env?: 'prod' | 'sandbox'): Promise
     s.src = scriptUrl;
     s.onload = finish;
     s.onerror = () => {
-      console.error('[Affirm] No se pudo cargar el SDK:', scriptUrl);
-      resolve(); // no bloquear
+      // No bloquear la web si falla
+      resolve();
     };
     document.head.appendChild(s);
   });

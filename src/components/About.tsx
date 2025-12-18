@@ -1,22 +1,55 @@
 // src/components/About.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Award, Users, Clock, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
 import UnderlineGrow from '../components/UnderlineGrow';
 import { useI18n } from '../i18n/I18nProvider';
+
+const FALLBACK_SVG =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700">
+    <defs>
+      <linearGradient id="g" x1="0" x2="1" y1="0" y2="1">
+        <stop offset="0" stop-color="#0b1220"/>
+        <stop offset="1" stop-color="#050509"/>
+      </linearGradient>
+      <radialGradient id="r" cx="70%" cy="35%" r="70%">
+        <stop offset="0" stop-color="#38bdf8" stop-opacity="0.28"/>
+        <stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="1200" height="700" fill="url(#g)"/>
+    <rect width="1200" height="700" fill="url(#r)"/>
+    <g fill="none" stroke="#ffffff" stroke-opacity="0.18">
+      <rect x="90" y="90" width="1020" height="520" rx="28"/>
+      <path d="M180 520 L520 260 L760 420 L1020 210" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g fill="#ffffff" fill-opacity="0.75" font-family="Arial, Helvetica, sans-serif">
+      <text x="110" y="650" font-size="34" font-weight="700">nextDrive</text>
+      <text x="110" y="680" font-size="18" fill-opacity="0.55">Upload your store/gallery images to /public/IMG/nextdrive/</text>
+    </g>
+  </svg>
+`);
 
 const About: React.FC = () => {
   const { t } = useI18n();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const storeImages = [
-    '/IMG/IMG-TIENDA.jpeg',
-    '/IMG/MOTOS-JUNTAS.jpeg',
-    '/IMG/IMG-TIENDA(2).webp',
-    '/IMG/MOTOS-JUNTAS (2).jpeg',
-    '/IMG/IMG-TIENDA(3).webp',
-    '/IMG/MOTOS-JUNTAS (1).jpeg',
-    '/IMG/IMG-TIENDA(2).webp',
-  ];
+  /**
+   * Importante:
+   * - Poné tus fotos reales de nextDrive en: /public/IMG/nextdrive/
+   * - Nombres sugeridos (podés cambiarlos):
+   *   store-1.jpg, store-2.jpg, store-3.jpg, store-4.jpg
+   */
+  const storeImages = useMemo(
+    () => [
+      '/IMG/nextdrive/store-1.jpg',
+      '/IMG/nextdrive/store-2.jpg',
+      '/IMG/nextdrive/store-3.jpg',
+      '/IMG/nextdrive/store-4.jpg',
+    ],
+    []
+  );
 
   const nextImage = () => setCurrentImageIndex((p) => (p + 1) % storeImages.length);
   const prevImage = () => setCurrentImageIndex((p) => (p - 1 + storeImages.length) % storeImages.length);
@@ -54,12 +87,8 @@ const About: React.FC = () => {
               <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl inline-flex items-center justify-center mb-4 shadow-[0_18px_55px_rgba(15,23,42,0.95)]">
                 <stat.icon className="w-7 h-7 text-sky-400" />
               </div>
-              <h3 className="text-2xl md:text-3xl font-black text-white mb-1">
-                {stat.number}
-              </h3>
-              <p className="text-white/70 text-sm md:text-base font-medium">
-                {t(stat.textKey)}
-              </p>
+              <h3 className="text-2xl md:text-3xl font-black text-white mb-1">{stat.number}</h3>
+              <p className="text-white/70 text-sm md:text-base font-medium">{t(stat.textKey)}</p>
             </div>
           ))}
         </div>
@@ -67,15 +96,10 @@ const About: React.FC = () => {
         {/* Content */}
         <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
           <div>
-            <h3 className="text-3xl font-black text-white mb-6">
-              {t('about.trust.title')}
-            </h3>
-            <p className="text-white/80 text-lg font-medium mb-6">
-              {t('about.trust.p1')}
-            </p>
-            <p className="text-white/80 text-lg font-medium mb-6">
-              {t('about.trust.p2')}
-            </p>
+            <h3 className="text-3xl font-black text-white mb-6">{t('about.trust.title')}</h3>
+            <p className="text-white/80 text-lg font-medium mb-6">{t('about.trust.p1')}</p>
+            <p className="text-white/80 text-lg font-medium mb-6">{t('about.trust.p2')}</p>
+
             <div className="flex flex-wrap gap-3">
               <span className="bg-white/5 border border-white/10 text-white/80 px-5 py-2.5 rounded-full text-sm md:text-base font-semibold shadow-[0_14px_40px_rgba(15,23,42,0.85)]">
                 {t('about.chips.quality')}
@@ -89,12 +113,17 @@ const About: React.FC = () => {
             </div>
           </div>
 
+          {/* Gallery */}
           <div className="relative">
             <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_22px_70px_rgba(15,23,42,0.95)]">
               <img
                 src={storeImages[currentImageIndex]}
                 alt={t('about.gallery.alt')}
                 className="w-full h-80 object-cover transition-transform duration-500"
+                onError={(e) => {
+                  const img = e.currentTarget as HTMLImageElement;
+                  img.src = FALLBACK_SVG;
+                }}
               />
 
               {/* Navigation Buttons */}
@@ -132,6 +161,10 @@ const About: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            <p className="mt-3 text-xs text-white/55">
+              Tip: Replace the gallery images in <span className="text-white/75 font-semibold">/public/IMG/nextdrive/</span> to match nextDrive.
+            </p>
           </div>
         </div>
 
@@ -140,14 +173,14 @@ const About: React.FC = () => {
           <h3 className="text-3xl font-black text-white text-center mb-12">
             <UnderlineGrow>{t('about.services.title')}</UnderlineGrow>
           </h3>
+
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             {services.map((s) => {
               const serviceTitle = t(s.titleKey);
               return (
-                <button
+                <div
                   key={s.id}
-                  onClick={() => alert(`${t('about.services.moreInfo')} ${serviceTitle}`)}
-                  className="bg-[#070b14]/95 backdrop-blur-xl border border-white/10 p-6 rounded-2xl hover:border-sky-400 hover:shadow-[0_22px_70px_rgba(56,189,248,0.4)] transition-all duration-300 transform hover:-translate-y-1 text-left"
+                  className="bg-[#070b14]/95 backdrop-blur-xl border border-white/10 p-6 rounded-2xl hover:border-sky-400 hover:shadow-[0_22px_70px_rgba(56,189,248,0.25)] transition-all duration-300 transform hover:-translate-y-1 text-left"
                 >
                   <div className="text-3xl mb-4" aria-hidden="true">
                     {s.icon}
@@ -156,7 +189,7 @@ const About: React.FC = () => {
                   <p className="text-white/80 text-sm md:text-base font-medium">
                     {t(s.descKey)}
                   </p>
-                </button>
+                </div>
               );
             })}
           </div>

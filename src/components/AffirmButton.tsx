@@ -1,5 +1,5 @@
 // src/components/AffirmButton.tsx
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { loadAffirm } from '../lib/affirm';
 import { buildAffirmCheckout, type CartItem as Item, type Customer } from '../lib/affirmCheckout';
 
@@ -19,7 +19,7 @@ type Props = {
   customer?: Customer;
 };
 
-const MIN_TOTAL_CENTS = 5000;
+const MIN_TOTAL_CENTS = 5000; // $50
 const toCents = (usd = 0) => Math.round((Number(usd) || 0) * 100);
 
 /* Toast + NiceModal */
@@ -116,10 +116,13 @@ export default function AffirmButton({
   taxUSD = 0,
   customer
 }: Props) {
-  const PUBLIC_KEY = (import.meta.env.VITE_AFFIRM_PUBLIC_KEY || '').trim();
+  const PUBLIC_KEY = String(import.meta.env.VITE_AFFIRM_PUBLIC_KEY || '').trim();
   const ENV = (import.meta.env.VITE_AFFIRM_ENV || 'prod') as 'prod' | 'sandbox';
 
+  const affirmEnabled = PUBLIC_KEY.length > 0;
+
   const [ready, setReady] = useState(false);
+  const [loadingSdk, setLoadingSdk] = useState(false);
   const [opening, setOpening] = useState(false);
   const [toast, setToast] = useState({
     show: false,
@@ -139,40 +142,86 @@ export default function AffirmButton({
   };
 
   useEffect(() => {
-    loadAffirm(PUBLIC_KEY, ENV)
-      .then(() => setReady(true))
-      .catch(() => setReady(false));
-  }, []);
+    let cancelled = false;
 
-  const mapped: Item[] = cartItems.map((it, i) => ({
-    id: it.id ?? it.sku ?? i + 1,
-    title: it.name,
-    price: it.price,
-    qty: Math.max(1, Number(it.qty) || 1),
-    url: it.url ?? '/',
-    image: it.image
-  }));
+    if (!affirmEnabled) {
+      setReady(false);
+      setLoadingSdk(false);
+      return;
+    }
+
+    setLoadingSdk(true);
+    loadAffirm(PUBLIC_KEY, ENV)
+      .then(() => {
+        if (cancelled) return;
+        const ok = !!(window as any).affirm?.checkout;
+        setReady(ok);
+      })
+      .catch((e) => {
+        console.error('[AffirmButton] loadAffirm failed:', e);
+        if (cancelled) return;
+        setReady(false);
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadingSdk(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [affirmEnabled, PUBLIC_KEY, ENV]);
+
+  const mapped: Item[] = useMemo(
+    () =>
+      cartItems.map((it, i) => ({
+        id: it.id ?? it.sku ?? i + 1,
+        title: it.name,
+        price: it.price,
+        qty: Math.max(1, Number(it.qty) || 1),
+        url: it.url ?? '/',
+        image: it.image
+      })),
+    [cartItems]
+  );
 
   const subtotalC = mapped.reduce((acc, it) => acc + toCents(it.price) * it.qty, 0);
   const shippingC = toCents(shippingUSD);
   const taxC = toCents(taxUSD);
   const totalC = typeof totalUSD === 'number' ? toCents(totalUSD) : subtotalC + shippingC + taxC;
 
-  const canPay = ready && mapped.length > 0 && totalC >= MIN_TOTAL_CENTS;
+  const hasItems = mapped.length > 0;
+  const meetsMin = totalC >= MIN_TOTAL_CENTS;
+
+  const canPay = affirmEnabled && ready && hasItems && meetsMin;
 
   async function handleClick() {
-    const affirm = (window as any).affirm;
+    if (!affirmEnabled) {
+      showToast('info', 'Financing will be available after approval.');
+      return;
+    }
 
+    if (loadingSdk) {
+      showToast('info', 'Loading financing…');
+      return;
+    }
+
+    const affirm = (window as any).affirm;
     if (!affirm?.checkout) {
       showToast('error', 'Affirm is not ready');
       return;
     }
 
-    if (!canPay) {
+    if (!hasItems) {
+      showToast('info', 'Your cart is empty.');
+      return;
+    }
+
+    if (!meetsMin) {
       setModal({
         open: true,
         title: 'Amount unavailable',
-        body: 'The total amount is too low for Affirm.',
+        body: 'The total amount is too low for Affirm (minimum $50).',
         retry: false
       });
       return;
@@ -257,15 +306,24 @@ export default function AffirmButton({
     }
   }
 
+  const buttonLabel = opening
+    ? 'Opening…'
+    : !affirmEnabled
+    ? 'Financing (coming soon)'
+    : loadingSdk
+    ? 'Loading…'
+    : 'Pay with Affirm';
+
   return (
     <>
       <button
         type="button"
         onClick={handleClick}
-        disabled={opening || !canPay}
+        disabled={opening || (!affirmEnabled ? false : !canPay && !loadingSdk)}
         className="h-9 px-3 text-sm rounded-md font-semibold bg-black text-white border border-white/20 shadow hover:bg-neutral-900 transition disabled:opacity-60"
+        title={!affirmEnabled ? 'Affirm will be enabled after approval' : undefined}
       >
-        {opening ? 'Opening…' : 'Pay with Affirm'}
+        {buttonLabel}
       </button>
 
       <Toast

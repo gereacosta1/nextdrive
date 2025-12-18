@@ -31,6 +31,12 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
 
   const handleLogoClick = () => {
     onNavigate('inicio');
+    setIsMenuOpen(false);
+  };
+
+  const handleOpenCart = () => {
+    open();
+    setIsMenuOpen(false);
   };
 
   return (
@@ -66,11 +72,7 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={`relative text-sm lg:text-base font-semibold tracking-wide transition-all duration-200
-                  ${
-                    activeSection === item.id
-                      ? 'text-sky-300'
-                      : 'text-white/70 hover:text-white'
-                  }`}
+                  ${activeSection === item.id ? 'text-sky-300' : 'text-white/70 hover:text-white'}`}
               >
                 {t(item.labelKey)}
                 {activeSection === item.id && (
@@ -81,7 +83,7 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
 
             {/* Cart button */}
             <button
-              onClick={open}
+              onClick={handleOpenCart}
               className="relative flex items-center gap-2 text-white/80 hover:text-white transition-colors"
               aria-label={t('nav.cart')}
               title={t('nav.cart')}
@@ -121,7 +123,7 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
           <div className="md:hidden flex items-center gap-3">
             {/* Cart */}
             <button
-              onClick={open}
+              onClick={handleOpenCart}
               className="relative text-white/80 hover:text-white transition-colors"
               aria-label={t('nav.cart')}
               title={t('nav.cart')}
@@ -137,7 +139,7 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
             {/* Phone */}
             <button
               onClick={handlePhoneCall}
-              className="hidden xs:flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-medium text-white/70 hover:text-white transition-colors"
             >
               <Phone className="w-4 h-4 text-sky-400" />
               <span>{t('contact.call')}</span>
@@ -151,6 +153,7 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="text-white/80 hover:text-white transition-colors"
               aria-label="Toggle menu"
+              title="Menu"
             >
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -188,7 +191,10 @@ const Header: React.FC<HeaderProps> = ({ activeSection, onNavigate }) => {
                   <span>+1 (786) 253 0995</span>
                 </button>
                 <button
-                  onClick={() => onNavigate('contacto')}
+                  onClick={() => {
+                    onNavigate('contacto');
+                    setIsMenuOpen(false);
+                  }}
                   className="flex items-center gap-1 hover:text-white/80 transition-colors"
                 >
                   <MapPin className="w-3 h-3 text-sky-400" />

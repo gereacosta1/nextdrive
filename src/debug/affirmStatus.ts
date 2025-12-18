@@ -7,7 +7,9 @@ export async function logAffirmStatus() {
   const hasVitePk = !!env.VITE_AFFIRM_PUBLIC_KEY;
 
   // backend diag (claves privadas y baseURL reales)
-  let fn = { ok: false, baseURL: null, isProd: null, HAS_AFFIRM_PRIVATE_KEY: false };
+  let fn = { ok: false, baseURL: null as any, isProd: null as any, HAS_AFFIRM_PRIVATE_KEY: false };
+
+  // Si no hay PK en frontend, igual podemos loguear estado sin “ruido”.
   try {
     const r = await fetch('/.netlify/functions/affirm-authorize', {
       method: 'POST',
@@ -28,7 +30,7 @@ export async function logAffirmStatus() {
     sdk: {
       env: cfg?.script?.includes('sandbox') ? 'sandbox' : 'production',
       key_starts_with: String(cfg?.public_api_key || '').slice(0, 7),
-      loaded: !!(sdk && sdk.ui)
+      loaded: !!(sdk && (sdk.ui || sdk.checkout))
     },
     fn,
     ok:
@@ -36,7 +38,7 @@ export async function logAffirmStatus() {
       fn.isProd === true &&
       hasVitePk === true &&
       !!cfg?.public_api_key &&
-      !!(sdk && sdk.ui),
+      !!(sdk && (sdk.ui || sdk.checkout)),
   };
 
   console.log(

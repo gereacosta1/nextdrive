@@ -1,8 +1,7 @@
 // src/components/Catalog.tsx
-import React, { useState } from 'react';
-import { Heart, Eye, Fuel, Gauge, Calendar } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Heart, Eye, Fuel, Gauge, Calendar, Tag } from 'lucide-react';
 import { Motorcycle } from '../App';
-import AffirmButton from './AffirmButton';
 import UnderlineGrow from './UnderlineGrow';
 
 import { useCart } from '../context/CartContext';
@@ -12,7 +11,7 @@ interface CatalogProps {
   onViewDetails: (motorcycle: Motorcycle) => void;
 }
 
-/** Toast simple para reemplazar alert() de "Ver más motos" */
+/** Toast simple */
 function SimpleToast({
   show,
   text,
@@ -34,7 +33,7 @@ function SimpleToast({
   );
 }
 
-// --- Botón reutilizable con estilos coherentes ---
+// --- Botón reutilizable ---
 type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: 'primary' | 'secondary' | 'ghost';
 };
@@ -77,35 +76,17 @@ const FEATURE_KEY_BY_ES: Record<string, string> = {
   'Sistema de navegación GPS': 'feature.gps',
 };
 
-/** ✅ Traducción robusta de features */
-const translateFeature = (
-  t: (k: string) => string,
-  productId: number,
-  featureTextES: string,
-  idx: number
-) => {
-  const keyById = `product.${productId}.feature.${idx}`;
-  const v1 = t(keyById);
-  if (v1 !== keyById) return v1;
-
-  const genericKey = FEATURE_KEY_BY_ES[featureTextES];
-  if (genericKey) {
-    const v2 = t(genericKey);
-    if (v2 !== genericKey) return v2;
-  }
-
-  return featureTextES;
-};
-
 const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
   const { t, fmtMoney } = useI18n();
+  const tOr = (key: string, fallback: string) => {
+    const v = t(key);
+    return v === key ? fallback : v;
+  };
 
   const [filter, setFilter] = useState<'all' | 'nueva'>('all');
+  const [category, setCategory] = useState<'all' | 'scooters' | 'ebikes' | 'accessories' | 'cargo'>('all');
   const [favorites, setFavorites] = useState<number[]>([]);
-  const [toast, setToast] = useState<{ show: boolean; text: string }>({
-    show: false,
-    text: '',
-  });
+  const [toast, setToast] = useState<{ show: boolean; text: string }>({ show: false, text: '' });
 
   const showToast = (text: string, ms = 2500) => {
     setToast({ show: true, text });
@@ -114,7 +95,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
 
   const { addItem, open } = useCart();
 
-  // ⬇️ mismos productos que tenías
+  // ⬇️ tus productos (mismos)
   const motorcycles: Motorcycle[] = [
     {
       id: 1,
@@ -335,8 +316,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
       condition: 'Nueva',
       engine: '373cc',
       featured: true,
-      description:
-        'Neumáticos de alta calidad para motos y bicicletas eléctricas.',
+      description: 'Neumáticos de alta calidad para motos y bicicletas eléctricas.',
       features: ['Alta durabilidad', 'Agarre superior', 'Diseño moderno'],
     },
     {
@@ -350,8 +330,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
       condition: 'Nueva',
       engine: 'electric',
       featured: true,
-      description:
-        'Bicicleta eléctrica premium, ideal para viajes largos y confort en la ciudad.',
+      description: 'Bicicleta eléctrica premium, ideal para viajes largos y confort en la ciudad.',
       features: ['Motor potente', 'Batería de larga duración', 'Diseño ergonómico'],
     },
     {
@@ -380,8 +359,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
       condition: 'Nueva',
       engine: 'electric',
       featured: true,
-      description:
-        'Scooter Movelito, compacto y eficiente. Perfecto para la ciudad con un diseño atractivo.',
+      description: 'Scooter Movelito, compacto y eficiente. Perfecto para la ciudad con un diseño atractivo.',
       features: ['Motor eléctrico', 'Ligero y ágil', 'Batería de alta capacidad'],
     },
     {
@@ -415,8 +393,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
       condition: 'Nueva',
       engine: 'electric',
       featured: true,
-      description:
-        'Scooter Movelito, compacto y eficiente. Perfecto para la ciudad con un diseño atractivo.',
+      description: 'Scooter Movelito, compacto y eficiente. Perfecto para la ciudad con un diseño atractivo.',
       features: ['Motor eléctrico', 'Ligero y ágil', 'Batería de alta capacidad'],
     },
     {
@@ -438,22 +415,108 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
     },
   ];
 
-  // Mostrar solo eléctricos o productos sin motor (JBL/ruedas)
-  const onlyElectricOrNoEngine = motorcycles.filter(
-    (m) => (m.engine && m.engine.toLowerCase() === 'electric') || !m.engine
-  );
+  /** Helpers de categorización (para no depender de engine mal puesto en accesorios) */
+  const lower = (s?: string) => String(s || '').toLowerCase();
 
-  // Mantener tu filtro "Todas / Nuevas" sobre la lista ya filtrada
-  const filteredMotorcycles = onlyElectricOrNoEngine.filter((moto) => {
-    if (filter === 'all') return true;
-    return moto.condition.toLowerCase() === filter;
-  });
+  const isElectric = (m: Motorcycle) => lower((m as any).engine).includes('electric');
+  const isCargo = (m: Motorcycle) =>
+    m.id === 5001 || lower(m.name).includes('cargo') || lower(m.name).includes('tricycle') || lower(m.model).includes('cargo');
 
-  const toggleFavorite = (id: number) => {
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]
+  const isAccessory = (m: Motorcycle) => {
+    const n = lower(m.name);
+    const b = lower(m.brand);
+    return (
+      b.includes('jbl') ||
+      b.includes('universal') ||
+      n.includes('parlante') ||
+      n.includes('ruedas') ||
+      n.includes('neum') ||
+      n.includes('speaker')
     );
   };
+
+  const isScooter = (m: Motorcycle) => isElectric(m) && lower(m.name).includes('scooter');
+  const isEBike = (m: Motorcycle) => isElectric(m) && (lower(m.name).includes('bike') || lower(m.name).includes('bici'));
+
+  const getCategory = (m: Motorcycle): 'scooters' | 'ebikes' | 'accessories' | 'cargo' | 'other' => {
+    if (isCargo(m)) return 'cargo';
+    if (isAccessory(m)) return 'accessories';
+    if (isScooter(m)) return 'scooters';
+    if (isEBike(m)) return 'ebikes';
+    return 'other';
+  };
+
+  const categoryBadge = (m: Motorcycle) => {
+    const c = getCategory(m);
+    if (c === 'scooters') return { label: 'Electric Scooter', tone: 'sky' as const };
+    if (c === 'ebikes') return { label: 'E-Bike', tone: 'sky' as const };
+    if (c === 'accessories') return { label: 'Accessories', tone: 'neutral' as const };
+    if (c === 'cargo') return { label: 'Cargo', tone: 'sky' as const };
+    return { label: 'Other', tone: 'neutral' as const };
+  };
+
+  /** ✅ Curado nextDrive: eléctricos + accesorios + cargo (saca motos “gas” que te hacen ver igual a OneWay) */
+  const curated = useMemo(() => {
+    return motorcycles.filter((m) => isElectric(m) || isAccessory(m) || isCargo(m));
+  }, []);
+
+  // Mantener tu filtro "Todas / Nuevas"
+  const filteredByCondition = useMemo(() => {
+    return curated.filter((moto) => {
+      if (filter === 'all') return true;
+      return String(moto.condition || '').toLowerCase() === filter;
+    });
+  }, [curated, filter]);
+
+  // Nuevo: filtro por categoría
+  const filteredMotorcycles = useMemo(() => {
+    const byCat =
+      category === 'all'
+        ? filteredByCondition
+        : filteredByCondition.filter((m) => getCategory(m) === category);
+
+    // Orden pro: featured -> año desc -> precio asc
+    return [...byCat].sort((a, b) => {
+      const af = a.featured ? 1 : 0;
+      const bf = b.featured ? 1 : 0;
+      if (bf !== af) return bf - af;
+
+      const ay = Number(a.year || 0);
+      const by = Number(b.year || 0);
+      if (by !== ay) return by - ay;
+
+      const ap = Number(a.price || 0);
+      const bp = Number(b.price || 0);
+      return ap - bp;
+    });
+  }, [filteredByCondition, category]);
+
+  const toggleFavorite = (id: number) => {
+    setFavorites((prev) => (prev.includes(id) ? prev.filter((favId) => favId !== id) : [...prev, id]));
+  };
+
+  /** Traducción robusta de features */
+  const translateFeature = (productId: number, featureTextES: string, idx: number) => {
+    const keyById = `product.${productId}.feature.${idx}`;
+    const v1 = t(keyById);
+    if (v1 !== keyById) return v1;
+
+    const genericKey = FEATURE_KEY_BY_ES[featureTextES];
+    if (genericKey) {
+      const v2 = t(genericKey);
+      if (v2 !== genericKey) return v2;
+    }
+
+    return featureTextES;
+  };
+
+  const categoryTabs = [
+    { id: 'all' as const, label: 'All' },
+    { id: 'scooters' as const, label: 'Electric Scooters' },
+    { id: 'ebikes' as const, label: 'E-Bikes' },
+    { id: 'accessories' as const, label: 'Accessories' },
+    { id: 'cargo' as const, label: 'Cargo' },
+  ];
 
   return (
     <section id="catalogo" className="py-20 bg-[#050509]">
@@ -467,31 +530,39 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
           </p>
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex justify-center mb-10">
+        {/* Row 1: Todas / Nuevas (compat) */}
+        <div className="flex justify-center mb-5">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-full p-1 flex space-x-1 shadow-[0_18px_45px_rgba(15,23,42,0.85)]">
             <button
               onClick={() => setFilter('all')}
               className={`px-7 py-2.5 rounded-full text-sm md:text-base font-semibold transition-all duration-300
-                ${
-                  filter === 'all'
-                    ? 'bg-white text-black shadow-[0_14px_40px_rgba(15,23,42,0.85)]'
-                    : 'text-white/70 hover:text-white hover:bg-white/5'
-                }`}
+                ${filter === 'all' ? 'bg-white text-black shadow-[0_14px_40px_rgba(15,23,42,0.85)]' : 'text-white/70 hover:text-white hover:bg-white/5'}`}
             >
               {t('catalog.filter.all')}
             </button>
             <button
               onClick={() => setFilter('nueva')}
               className={`px-7 py-2.5 rounded-full text-sm md:text-base font-semibold transition-all duration-300
-                ${
-                  filter === 'nueva'
-                    ? 'bg-sky-500 text-black shadow-[0_14px_40px_rgba(56,189,248,0.65)]'
-                    : 'text-white/70 hover:text-white hover:bg-white/5'
-                }`}
+                ${filter === 'nueva' ? 'bg-sky-500 text-black shadow-[0_14px_40px_rgba(56,189,248,0.65)]' : 'text-white/70 hover:text-white hover:bg-white/5'}`}
             >
               {t('catalog.filter.new')}
             </button>
+          </div>
+        </div>
+
+        {/* Row 2: Categorías (nuevo) */}
+        <div className="flex justify-center mb-10">
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-full p-1 flex flex-wrap gap-1 shadow-[0_18px_45px_rgba(15,23,42,0.85)]">
+            {categoryTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setCategory(tab.id)}
+                className={`px-5 py-2 rounded-full text-xs md:text-sm font-semibold transition-all duration-300
+                  ${category === tab.id ? 'bg-white text-black shadow-[0_14px_40px_rgba(15,23,42,0.85)]' : 'text-white/70 hover:text-white hover:bg-white/5'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -499,9 +570,9 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredMotorcycles.map((moto) => {
             const condLabel =
-              moto.condition === 'Nueva'
-                ? t('product.condition.new')
-                : t('product.condition.used');
+              moto.condition === 'Nueva' ? t('product.condition.new') : t('product.condition.used');
+
+            const badge = categoryBadge(moto);
 
             return (
               <div
@@ -516,22 +587,32 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                     loading="lazy"
                     onError={(e) => {
                       const target = e.currentTarget as HTMLImageElement;
-                      if (target.src.endsWith('/fallback.png')) return;
-                      target.src = '/fallback.png';
+                      if (!target.src.endsWith('/fallback.png')) target.src = '/fallback.png';
                     }}
                   />
+
+                  {/* Condición */}
                   <div className="absolute top-4 left-4">
                     <span
                       className={`px-3 py-1 rounded-full text-xs font-semibold tracking-wide
-                        ${
-                          moto.condition === 'Nueva'
-                            ? 'bg-sky-500 text-black shadow-[0_8px_25px_rgba(56,189,248,0.6)]'
-                            : 'bg-white text-black/90 shadow-[0_8px_25px_rgba(15,23,42,0.7)]'
-                        }`}
+                        ${moto.condition === 'Nueva' ? 'bg-sky-500 text-black shadow-[0_8px_25px_rgba(56,189,248,0.6)]' : 'bg-white text-black/90 shadow-[0_8px_25px_rgba(15,23,42,0.7)]'}`}
                     >
                       {condLabel}
                     </span>
                   </div>
+
+                  {/* Categoría */}
+                  <div className="absolute bottom-4 left-4">
+                    <span
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border shadow-lg
+                        ${badge.tone === 'sky' ? 'bg-black/70 text-sky-200 border-sky-400/30' : 'bg-black/70 text-white/80 border-white/20'}`}
+                    >
+                      <Tag className="w-3.5 h-3.5" />
+                      {badge.label}
+                    </span>
+                  </div>
+
+                  {/* Favorito */}
                   <div className="absolute top-4 right-4">
                     <button
                       type="button"
@@ -539,13 +620,13 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                       className="p-2 rounded-full bg-black/75 backdrop-blur-md hover:bg-black border border-white/20 transition-colors"
                       aria-label={
                         favorites.includes(moto.id)
-                          ? t('favorites.remove')
-                          : t('favorites.add')
+                          ? tOr('favorites.remove', 'Remove favorite')
+                          : tOr('favorites.add', 'Add to favorites')
                       }
                       title={
                         favorites.includes(moto.id)
-                          ? t('favorites.remove')
-                          : t('favorites.add')
+                          ? tOr('favorites.remove', 'Remove favorite')
+                          : tOr('favorites.add', 'Add to favorites')
                       }
                     >
                       <Heart
@@ -556,6 +637,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                     </button>
                   </div>
 
+                  {/* Featured */}
                   {moto.featured && (
                     <div className="absolute top-4 left-1/2 -translate-x-1/2">
                       <span className="bg-white text-black/90 px-4 py-1.5 rounded-full text-xs font-semibold shadow-[0_10px_30px_rgba(15,23,42,0.7)]">
@@ -578,26 +660,25 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                       <Calendar className="w-4 h-4 text-sky-400" />
                       <span className="font-semibold">{moto.year}</span>
                     </div>
-                    {moto.engine && (
+
+                    {/* Solo mostrar engine si es eléctrico o si no es accesorio (para no poner “373cc” en JBL) */}
+                    {moto.engine && !isAccessory(moto) && (
                       <div className="flex items-center gap-2">
                         <Fuel className="w-4 h-4 text-sky-400" />
-                        <span className="font-semibold text-xs md:text-sm">
-                          {moto.engine}
-                        </span>
+                        <span className="font-semibold text-xs md:text-sm">{moto.engine}</span>
                       </div>
                     )}
+
                     {moto.mileage && (
                       <div className="flex items-center gap-2 col-span-2">
                         <Gauge className="w-4 h-4 text-sky-400" />
-                        <span className="font-semibold">
-                          {moto.mileage.toLocaleString()} km
-                        </span>
+                        <span className="font-semibold">{moto.mileage.toLocaleString()} km</span>
                       </div>
                     )}
                   </div>
 
-                  {/* precio visible */}
-                  {moto.price > 0 && (
+                  {/* precio */}
+                  {Number(moto.price) > 0 && (
                     <p className="text-lg font-bold text-sky-300">
                       {fmtMoney(Number(moto.price))}
                     </p>
@@ -606,8 +687,8 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                   {/* features */}
                   {moto.features?.length ? (
                     <div className="flex flex-wrap gap-2">
-                      {moto.features.map((f, idx) => {
-                        const label = translateFeature(t, moto.id, f, idx);
+                      {moto.features.slice(0, 6).map((f, idx) => {
+                        const label = translateFeature(moto.id, f, idx);
                         return (
                           <span
                             key={`${moto.id}-feature-${idx}`}
@@ -620,7 +701,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                     </div>
                   ) : null}
 
-                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Ver Detalles */}
                     <Btn
                       variant="secondary"
@@ -638,7 +719,10 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                       type="button"
                       onClick={() => {
                         const priceNum = Number(moto.price);
-                        if (!Number.isFinite(priceNum) || priceNum <= 0) return;
+                        if (!Number.isFinite(priceNum) || priceNum <= 0) {
+                          showToast(t('product.price.toConfirm'));
+                          return;
+                        }
                         addItem({
                           id: String(moto.id),
                           name: moto.name,
@@ -653,41 +737,12 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
                     >
                       {t('cart.add')}
                     </Btn>
-
-                    {/* Affirm por ítem (igual que antes) */}
-                    <div className="w-full">
-                      {(() => {
-                        const priceNum = Number(moto.price);
-                        const isPriceValid =
-                          Number.isFinite(priceNum) && priceNum > 0;
-                        if (!isPriceValid) {
-                          return (
-                            <button
-                              disabled
-                              title={t('product.price.toConfirm')}
-                              className="w-full bg-white/5 text-white/60 px-6 py-3 rounded-xl text-sm font-semibold cursor-not-allowed border border-white/10"
-                            >
-                              {t('product.price.toConfirm')}
-                            </button>
-                          );
-                        }
-                        return (
-                          <AffirmButton
-                            cartItems={[
-                              {
-                                name: moto.name,
-                                price: priceNum,
-                                qty: 1,
-                                sku: String(moto.id),
-                                url: window.location.href,
-                              },
-                            ]}
-                            totalUSD={priceNum}
-                          />
-                        );
-                      })()}
-                    </div>
                   </div>
+
+                  {/* Micro-copy pro (no “Affirm por item”, pero comunica financing) */}
+                  <p className="text-xs text-white/55">
+                    Financing options available at checkout.
+                  </p>
                 </div>
               </div>
             );
@@ -704,12 +759,7 @@ const Catalog: React.FC<CatalogProps> = ({ onViewDetails }) => {
         </div>
       </div>
 
-      {/* Toast global */}
-      <SimpleToast
-        show={toast.show}
-        text={toast.text}
-        onClose={() => setToast({ show: false, text: '' })}
-      />
+      <SimpleToast show={toast.show} text={toast.text} onClose={() => setToast({ show: false, text: '' })} />
     </section>
   );
 };

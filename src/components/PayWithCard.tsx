@@ -1,5 +1,5 @@
 // src/components/PayWithCard.tsx
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { startCardCheckout } from '../lib/cardCheckout';
 
@@ -7,6 +7,14 @@ const PayWithCard: React.FC = () => {
   const { items, totalUSD } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const totalLabel = useMemo(() => {
+    const n = Number(totalUSD);
+    const safe = Number.isFinite(n) ? n : 0;
+    return safe.toFixed(2);
+  }, [totalUSD]);
+
+  const stripeEnabled = true; // si querés, más adelante lo validamos con env/health
 
   const handleClick = async () => {
     try {
@@ -17,9 +25,14 @@ const PayWithCard: React.FC = () => {
         return;
       }
 
+      if (!stripeEnabled) {
+        setError('Card payments are not available right now.');
+        return;
+      }
+
       setLoading(true);
       await startCardCheckout(items);
-      // Redirect handled by Stripe — nothing else to do here
+      // Stripe redirige — no hacemos nada más acá
     } catch (e: any) {
       console.error(e);
       setError(e?.message || 'An error occurred while starting the payment.');
@@ -33,21 +46,16 @@ const PayWithCard: React.FC = () => {
         type="button"
         onClick={handleClick}
         disabled={loading || !items.length}
-        className="w-full rounded-md bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full bg-white text-black px-4 py-3 rounded-lg font-bold hover:bg-white/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading
-          ? 'Redirecting to payment…'
-          : 'Pay with card / installments'}
+        {loading ? 'Redirecting to payment…' : 'Pay by card (credit/debit)'}
       </button>
 
-      <p className="text-xs text-slate-500">
-        Total{' '}
-        <span className="font-semibold">
-          ${totalUSD.toFixed(2)} USD
-        </span>
+      <p className="text-xs text-white/55">
+        Total <span className="font-semibold">${totalLabel} USD</span>
       </p>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 };
