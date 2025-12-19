@@ -31,8 +31,8 @@ export type Customer = {
 const toCents = (usd = 0) => Math.round((usd || 0) * 100);
 
 // Validadores mínimos
-const isUSState  = (v?: string) => !!v && /^[A-Z]{2}$/.test(v.toUpperCase());
-const isUSZip    = (v?: string) => !!v && /^\d{5}(-\d{4})?$/.test(v);
+const isUSState   = (v?: string) => !!v && /^[A-Z]{2}$/.test(v.toUpperCase());
+const isUSZip     = (v?: string) => !!v && /^\d{5}(-\d{4})?$/.test(v);
 const isCountryUS = (v?: string) => (v || '').toUpperCase() === 'US';
 
 // Dirección USPS REAL para cumplir con name+address y abrir el modal
@@ -51,13 +51,21 @@ function buildNameAndAddress(c?: Customer) {
     last:  (c?.lastName  || 'Customer').trim(),
   };
   const addr = {
-    line1:   (a.line1   && a.line1.trim())   || FALLBACK_ADDR.line1,
-    city:    (a.city    && a.city.trim())    || FALLBACK_ADDR.city,
-    state:    isUSState(a.state)   ? a.state!.trim()   : FALLBACK_ADDR.state,
-    zipcode:  isUSZip(a.zip)       ? a.zip!.trim()     : FALLBACK_ADDR.zipcode,
-    country:  isCountryUS(a.country)? a.country!.trim(): FALLBACK_ADDR.country,
+    line1:   (a.line1 && a.line1.trim()) || FALLBACK_ADDR.line1,
+    city:    (a.city  && a.city.trim())  || FALLBACK_ADDR.city,
+    state:    isUSState(a.state) ? a.state!.trim().toUpperCase() : FALLBACK_ADDR.state,
+    zipcode:  isUSZip(a.zip)     ? a.zip!.trim()                  : FALLBACK_ADDR.zipcode,
+    country:  isCountryUS(a.country) ? a.country!.trim().toUpperCase() : FALLBACK_ADDR.country,
   };
   return { name, addr };
+}
+
+function getMerchantName(): string {
+  // Si querés manejarlo por env, definí en Netlify:
+  // VITE_MERCHANT_NAME=NextDrive
+  const envName = (import.meta as any).env?.VITE_MERCHANT_NAME;
+  const name = (envName || 'NextDrive').toString().trim();
+  return name || 'NextDrive';
 }
 
 export function buildAffirmCheckout(
@@ -72,7 +80,9 @@ export function buildAffirmCheckout(
     unit_price: toCents(p.price),
     qty: Math.max(1, Number(p.qty) || 1),
     item_url: (p.url?.startsWith('http') ? p.url : merchantBase + (p.url || '/')),
-    image_url: p.image ? (p.image.startsWith('http') ? p.image : merchantBase + p.image) : undefined,
+    image_url: p.image
+      ? (p.image.startsWith('http') ? p.image : merchantBase + p.image)
+      : undefined,
   }));
 
   const shippingC = toCents(totals.shippingUSD ?? 0);
@@ -88,11 +98,11 @@ export function buildAffirmCheckout(
       user_confirmation_url: merchantBase + '/affirm/confirm.html',
       user_cancel_url:       merchantBase + '/affirm/cancel.html',
       user_confirmation_url_action: 'GET',
-      name: 'ONE WAY MOTORS',
+      name: getMerchantName(), // ✅ NextDrive
     },
     // Enviamos ambos bloques; shipping = billing
-    billing: { name, address: addr },
-    shipping:{ name, address: addr },
+    billing:  { name, address: addr },
+    shipping: { name, address: addr },
     items: mapped,
     currency: 'USD',
     shipping_amount: shippingC,
