@@ -18,7 +18,7 @@ export type Customer = {
   firstName?: string;
   lastName?: string;
   email?: string;
-  phone?: string; // E.164 (+1XXXXXXXXXX) — opcional; NO lo enviaremos por defecto
+  phone?: string; // opcional; NO lo enviaremos por defecto
   address?: {
     line1?: string;
     city?: string;
@@ -31,41 +31,33 @@ export type Customer = {
 const toCents = (usd = 0) => Math.round((usd || 0) * 100);
 
 // Validadores mínimos
-const isUSState   = (v?: string) => !!v && /^[A-Z]{2}$/.test(v.toUpperCase());
-const isUSZip     = (v?: string) => !!v && /^\d{5}(-\d{4})?$/.test(v);
-const isCountryUS = (v?: string) => (v || '').toUpperCase() === 'US';
+const isUSState = (v?: string) => !!v && /^[A-Z]{2}$/.test(v.toUpperCase());
+const isUSZip = (v?: string) => !!v && /^\d{5}(-\d{4})?$/.test(v);
+const isCountryUS = (v?: string) => (v || "").toUpperCase() === "US";
 
-// Dirección USPS REAL para cumplir con name+address y abrir el modal
+// Dirección real fallback (para que Affirm no rechace por name/address vacío)
 const FALLBACK_ADDR = {
-  line1:  '297 NW 54th St',
-  city:   'Miami',
-  state:  'FL',
-  zipcode:'33127',
-  country:'US',
+  line1: "297 NW 54th St",
+  city: "Miami",
+  state: "FL",
+  zipcode: "33127",
+  country: "US",
 };
 
 function buildNameAndAddress(c?: Customer) {
   const a = c?.address || {};
   const name = {
-    first: (c?.firstName || 'Online').trim(),
-    last:  (c?.lastName  || 'Customer').trim(),
+    first: (c?.firstName || "Online").trim(),
+    last: (c?.lastName || "Customer").trim(),
   };
   const addr = {
-    line1:   (a.line1 && a.line1.trim()) || FALLBACK_ADDR.line1,
-    city:    (a.city  && a.city.trim())  || FALLBACK_ADDR.city,
-    state:    isUSState(a.state) ? a.state!.trim().toUpperCase() : FALLBACK_ADDR.state,
-    zipcode:  isUSZip(a.zip)     ? a.zip!.trim()                  : FALLBACK_ADDR.zipcode,
-    country:  isCountryUS(a.country) ? a.country!.trim().toUpperCase() : FALLBACK_ADDR.country,
+    line1: (a.line1 && a.line1.trim()) || FALLBACK_ADDR.line1,
+    city: (a.city && a.city.trim()) || FALLBACK_ADDR.city,
+    state: isUSState(a.state) ? a.state!.trim().toUpperCase() : FALLBACK_ADDR.state,
+    zipcode: isUSZip(a.zip) ? a.zip!.trim() : FALLBACK_ADDR.zipcode,
+    country: isCountryUS(a.country) ? a.country!.trim().toUpperCase() : FALLBACK_ADDR.country,
   };
   return { name, addr };
-}
-
-function getMerchantName(): string {
-  // Si querés manejarlo por env, definí en Netlify:
-  // VITE_MERCHANT_NAME=NextDrive
-  const envName = (import.meta as any).env?.VITE_MERCHANT_NAME;
-  const name = (envName || 'NextDrive').toString().trim();
-  return name || 'NextDrive';
 }
 
 export function buildAffirmCheckout(
@@ -79,38 +71,41 @@ export function buildAffirmCheckout(
     sku: String(p.id),
     unit_price: toCents(p.price),
     qty: Math.max(1, Number(p.qty) || 1),
-    item_url: (p.url?.startsWith('http') ? p.url : merchantBase + (p.url || '/')),
+    item_url: p.url?.startsWith("http") ? p.url : merchantBase + (p.url || "/"),
     image_url: p.image
-      ? (p.image.startsWith('http') ? p.image : merchantBase + p.image)
+      ? (p.image.startsWith("http") ? p.image : merchantBase + p.image)
       : undefined,
   }));
 
   const shippingC = toCents(totals.shippingUSD ?? 0);
-  const taxC      = toCents(totals.taxUSD ?? 0);
-  const subtotalC = mapped.reduce((acc, it) => acc + it.unit_price * it.qty, 0);
-  const totalC    = subtotalC + shippingC + taxC;
+  const taxC = toCents(totals.taxUSD ?? 0);
 
-  // Nombre/dirección válidos para billing y shipping (sin teléfono)
+  // Subtotal real desde items (más confiable que subtotalUSD)
+  const subtotalC = mapped.reduce((acc, it) => acc + it.unit_price * it.qty, 0);
+  const totalC = subtotalC + shippingC + taxC;
+
   const { name, addr } = buildNameAndAddress(customer);
 
   const payload: any = {
     merchant: {
-      user_confirmation_url: merchantBase + '/affirm/confirm.html',
-      user_cancel_url:       merchantBase + '/affirm/cancel.html',
-      user_confirmation_url_action: 'GET',
-      name: getMerchantName(), // ✅ NextDrive
+      user_confirmation_url: merchantBase + "/affirm/confirm.html",
+      user_cancel_url: merchantBase + "/affirm/cancel.html",
+      user_confirmation_url_action: "GET",
+      name: "NEXTDRIVE",
     },
+
     // Enviamos ambos bloques; shipping = billing
-    billing:  { name, address: addr },
+    billing: { name, address: addr },
     shipping: { name, address: addr },
+
     items: mapped,
-    currency: 'USD',
+    currency: "USD",
     shipping_amount: shippingC,
     tax_amount: taxC,
     total: totalC,
-    metadata: { mode: 'modal' },
+    metadata: { mode: "modal" },
   };
 
-  // No mandamos phone_number para evitar rechazos; Affirm lo pide en el modal si hace falta.
+  // No enviamos phone_number para evitar rechazos; Affirm lo pedirá en el modal si hace falta.
   return payload;
 }
