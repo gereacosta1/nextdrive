@@ -43,10 +43,10 @@ const About: React.FC = () => {
    */
   const storeImages = useMemo(
     () => [
-      '/IMG/nextdrive/store-1.jpg',
-      '/IMG/nextdrive/store-2.jpg',
-      '/IMG/nextdrive/store-3.jpg',
-      '/IMG/nextdrive/store-4.jpg',
+      '/IMG/electricBike.jpeg',
+      '/IMG/electricBike2.jpeg',
+      '/IMG/electricBike3.jpeg',
+      '/IMG/triciclo-negro.jpeg',
     ],
     []
   );
