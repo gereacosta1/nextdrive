@@ -162,9 +162,7 @@ const About: React.FC = () => {
               </div>
             </div>
 
-            <p className="mt-3 text-xs text-white/55">
-              Tip: Replace the gallery images in <span className="text-white/75 font-semibold">/public/IMG/nextdrive/</span> to match nextDrive.
-            </p>
+            
           </div>
         </div>
 
